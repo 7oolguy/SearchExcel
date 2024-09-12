@@ -17,34 +17,47 @@ sys.path.append(project_root)
 # Now try importing
 from search.search import search_whole_sheet
 
-class App:
-    def __init__(self):
-        # Cria a janela principal
-        self.win = Window(themename='journal')
-        self.win.title('App')
-        self.__start__()
+app_active = None
+def start_app():
+    global app_active
 
-    def __start__(self):
-        self.set_geometry()
-        search(self.win)
-        self.win.mainloop()  # Iniciar o loop principal da aplicação
+    if app_active is not None and ttk.Toplevel.winfo_exists(app_active):
+        app_active.lift()
+        return
 
-    def set_geometry(self):
-        # Definir o tamanho da janela
-        window_width = 1000
-        window_height = 600
+    app_active = Window(themename='journal')
+    app_active.title('App')
 
-        # Obtém as dimensões da tela
-        display_width = self.win.winfo_screenwidth()
-        display_height = self.win.winfo_screenheight()
+    # Dimensions
+    display_width = app_active.winfo_screenwidth()
+    display_height = app_active.winfo_screenheight()
 
-        # Calcula a posição da janela para ficar centralizada
-        left = int(display_width / 2 - window_width / 2)
-        top = int(display_height / 2 - window_height / 2)
+    window_width = int(display_width / 2)
+    window_height = int(display_height / 2)
 
-        # Define a geometria da janela
-        self.win.geometry(f'{window_width}x{window_height}+{left}+{top}')
-        self.win.minsize(500, 300)
+    # Calculate the position to center the window
+    left = int(display_width / 2 - window_width / 2)
+    top = int(display_height / 2 - window_height / 2)
+
+    app_active.geometry(f'{window_width}x{window_height}+{left}+{top}')
+    app_active.minsize(500, 300)
+
+    # ________________________________________________________________
+    # ________________________________________________________________
+    # ________________________________________________________________
+
+    # Search Module
+    # Screen 5 Columns
+
+    excel_data = []
+
+    search_label = ttk.Label(app_active, text='Search', font=('Arial', 12))
+    search_label.grid(row=0, column=0, columnspan=1, sticky='nsw', padx=5, pady=10)
+
+    search_entry = ttk.Entry(app_active, bootstyle="info", width=50)
+    search_entry.grid(row=0, column=1, columnspan=3, sticky='nsew', padx=5, pady=10)
+
+    app_active.mainloop()
 
 def search(app: ttk.Window):
     data = []
@@ -55,7 +68,8 @@ def search(app: ttk.Window):
         nonlocal data  # Ensure data is accessible within this scope
         data = search_whole_sheet(r'test\files\DADOS FINANCEIROS - 2025.xlsx', query)
         print("Search Results:", data)
-        display()
+        display_search()
+        print("Returned Row Data:", row_data)
 
     search_label = ttk.Label(app, text='Search:', font=('Helvetica', 12))
     search_label.grid(row=0, column=0, columnspan=2, sticky='nsw', padx=10, pady=10)
@@ -69,7 +83,7 @@ def search(app: ttk.Window):
 
     def adjust_listbox_height(listbox, row_count):
         # Set the height based on the number of rows
-        listbox.config(height=min(row_count, 50))  # Max height of 10 rows
+        listbox.config(height=min(row_count, 50))  # Max height of 50 rows
 
     def adjust_listbox_width(listbox, data):
         # Calculate the maximum width needed for each column
@@ -81,11 +95,11 @@ def search(app: ttk.Window):
         # Set the width of the Listbox based on the calculated total width
         listbox.config(width=total_width)
 
-    def display():
+    def display_search():
         # Clear the Listbox
         result_listbox.delete(0, tk.END)
 
-        # Filter the data based on search_value and display the results
+        # Filter the data and display the results
         filtered_data = data
 
         for row in filtered_data:
@@ -96,27 +110,22 @@ def search(app: ttk.Window):
         # Adjust the Listbox height based on the number of filtered rows
         adjust_listbox_height(result_listbox, len(filtered_data))
 
-        # Adjust the Listbox width based on the content
-        #adjust_listbox_width(result_listbox, filtered_data)
+        # Bind the row selection function to return the selected row's data
+        def on_row_select(event):
+            select_index = result_listbox.curselection()
+            if select_index:
+                row_data = filtered_data[select_index[0]]
+                print("Row Data Selected:", row_data)
+                return row_data
+
+        result_listbox.bind('<Button-1>', on_row_select)  # Bind left click to select row
+
+        return None  # Return None if no selection is made
 
     result_listbox = tk.Listbox(app)
     result_listbox.grid(row=1, column=0, columnspan=5, sticky='nsew', padx=10, pady=10)
 
-    def on_row_select(event):
-        # Get the index of the clicked item
-        select_index = result_listbox.curselection()
-
-        if select_index:
-            if event.num == 1:  # Left click
-                print("Left Clicked on:", data[select_index[0]])
-            elif event.num == 3:  # Right click
-                row_data = data[select_index[0]]
-                messagebox.showinfo("Row Data", f"Selected Row: {row_data}")
-
-    # Bind left and right-click events to the Listbox
-    result_listbox.bind('<Button-1>', on_row_select)  # Left click
-    result_listbox.bind('<Button-3>', on_row_select)  # Right click
-
+    row_data = []
     def selected_row():
         select_index = result_listbox.curselection()
         if select_index:
@@ -125,10 +134,9 @@ def search(app: ttk.Window):
 
     select_btn = ttk.Button(app, text='Select', bootstyle='success', command=selected_row)
     select_btn.grid(row=2, column=0, columnspan=5, sticky='new', padx=10, pady=10)
+    return row_data
 
 
-
-
-# Execução da aplicação
+# Run the application
 if __name__ == "__main__":
     app = App()
